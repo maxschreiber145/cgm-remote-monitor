@@ -18,20 +18,11 @@ struct RecordDetailView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
             }
 
-            // Signal metrics
-            Section("Signal") {
-                metricRow("Beam Power", value: record.formattedBeamPower)
+            // Connection
+            Section("Connection") {
+                metricRow("Type", value: record.connectionType.rawValue)
+                metricRow("Latency", value: record.formattedLatency)
                 metricRow("Quality", value: record.signalQuality.rawValue, color: qualityColor)
-
-                if let rsrp = record.rsrp {
-                    metricRow("RSRP", value: String(format: "%.1f dBm", rsrp))
-                }
-                if let rsrq = record.rsrq {
-                    metricRow("RSRQ", value: String(format: "%.1f dB", rsrq))
-                }
-                if let sinr = record.sinr {
-                    metricRow("SINR", value: String(format: "%.1f dB", sinr))
-                }
             }
 
             // Satellite info
@@ -56,10 +47,10 @@ struct RecordDetailView: View {
             // Timestamp
             Section("Time") {
                 metricRow("Recorded", value: record.formattedTimestamp)
-                metricRow("ID", value: record.id.uuidString.prefix(8).description)
+                metricRow("ID", value: String(record.id.uuidString.prefix(8)))
             }
         }
-        .navigationTitle(record.formattedBeamPower)
+        .navigationTitle(record.formattedLatency)
         .navigationBarTitleDisplayMode(.inline)
     }
 

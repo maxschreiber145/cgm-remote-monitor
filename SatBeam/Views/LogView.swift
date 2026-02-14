@@ -56,7 +56,7 @@ struct LogView: View {
             Text("No recordings yet")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text("Tap REC to capture a beam measurement")
+            Text("Tap REC to capture a measurement")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -66,28 +66,17 @@ struct LogView: View {
 
     private var recordList: some View {
         List {
-            // Summary header
             Section {
                 HStack {
-                    summaryItem(
-                        title: "Recordings",
-                        value: "\(store.records.count)"
-                    )
+                    summaryItem(title: "Recordings", value: "\(store.records.count)")
                     Divider()
-                    summaryItem(
-                        title: "Avg Power",
-                        value: averagePower
-                    )
+                    summaryItem(title: "Avg Latency", value: averageLatency)
                     Divider()
-                    summaryItem(
-                        title: "Best",
-                        value: bestPower
-                    )
+                    summaryItem(title: "Best", value: bestLatency)
                 }
                 .padding(.vertical, 4)
             }
 
-            // Records
             Section("Measurements") {
                 ForEach(store.records) { record in
                     NavigationLink(destination: RecordDetailView(record: record)) {
@@ -112,16 +101,16 @@ struct LogView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var averagePower: String {
-        let powers = store.records.compactMap(\.beamPower)
-        guard !powers.isEmpty else { return "—" }
-        let avg = powers.reduce(0, +) / Double(powers.count)
-        return String(format: "%.1f", avg)
+    private var averageLatency: String {
+        let latencies = store.records.compactMap(\.latencyMs)
+        guard !latencies.isEmpty else { return "—" }
+        let avg = latencies.reduce(0, +) / Double(latencies.count)
+        return String(format: "%.0f ms", avg)
     }
 
-    private var bestPower: String {
-        guard let best = store.records.compactMap(\.beamPower).max() else { return "—" }
-        return String(format: "%.1f", best)
+    private var bestLatency: String {
+        guard let best = store.records.compactMap(\.latencyMs).min() else { return "—" }
+        return String(format: "%.0f ms", best)
     }
 }
 
@@ -132,18 +121,22 @@ struct RecordRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Signal quality indicator
             Circle()
                 .fill(qualityColor)
                 .frame(width: 10, height: 10)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(record.formattedBeamPower)
+                    Text(record.formattedLatency)
                         .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    Text(record.satelliteName)
+                    Text(record.connectionType.rawValue)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                    if record.satelliteName != "—" {
+                        Text(record.satelliteName)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Text("\(record.formattedCoordinate)  \(record.formattedTimestamp)")
                     .font(.system(size: 11, design: .monospaced))

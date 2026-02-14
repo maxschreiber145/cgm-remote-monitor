@@ -52,9 +52,8 @@ final class RecordStore: ObservableObject {
 
     // MARK: - Export
 
-    /// Export all records as CSV for analysis.
     func exportCSV() -> String {
-        var csv = "timestamp,latitude,longitude,altitude,rsrp_dBm,rsrq_dB,sinr_dB,rssi_dBm,satellite,rat,carrier,band,quality\n"
+        var csv = "timestamp,latitude,longitude,altitude,connection_type,latency_ms,satellite,rat,carrier,band,quality\n"
 
         for r in records {
             let row = [
@@ -62,10 +61,8 @@ final class RecordStore: ObservableObject {
                 String(r.latitude),
                 String(r.longitude),
                 String(r.altitude),
-                r.rsrp.map(String.init) ?? "",
-                r.rsrq.map(String.init) ?? "",
-                r.sinr.map(String.init) ?? "",
-                r.rawSignalStrength.map(String.init) ?? "",
+                r.connectionType.rawValue,
+                r.latencyMs.map { String(format: "%.1f", $0) } ?? "",
                 r.satelliteName,
                 r.radioAccessTechnology,
                 r.carrierName ?? "",

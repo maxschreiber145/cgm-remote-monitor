@@ -24,6 +24,11 @@ struct SatBeamApp: App {
                     .tabItem {
                         Label("Map", systemImage: "map")
                     }
+
+                SkyView()
+                    .tabItem {
+                        Label("Sky", systemImage: "scope")
+                    }
             }
             .environmentObject(store)
             .environmentObject(location)

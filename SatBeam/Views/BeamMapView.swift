@@ -45,7 +45,7 @@ struct BeamMapView: View {
             // All recorded measurements as color-coded markers
             ForEach(store.records) { record in
                 Annotation(
-                    record.formattedBeamPower,
+                    record.formattedLatency,
                     coordinate: record.coordinate
                 ) {
                     beamDot(for: record)

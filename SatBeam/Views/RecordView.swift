@@ -44,21 +44,23 @@ struct RecordView: View {
     private var currentReadingsPanel: some View {
         VStack(spacing: 16) {
 
-            // Signal strength display
+            // Connection type + latency display
             VStack(spacing: 4) {
-                Text("BEAM POWER")
+                Text("CONNECTION")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .tracking(2)
 
-                if let reading = signal.currentReading, let power = reading.rsrp ?? reading.rawSignalStrength {
-                    Text(String(format: "%.1f dBm", power))
-                        .font(.system(size: 48, weight: .thin, design: .monospaced))
-                        .foregroundStyle(colorForPower(power))
-                } else {
-                    Text("— dBm")
-                        .font(.system(size: 48, weight: .thin, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    connectionIcon
+                    Text(signal.connectionType.rawValue)
+                        .font(.system(size: 32, weight: .thin, design: .monospaced))
+                }
+
+                if let reading = signal.currentReading, let ms = reading.latencyMs {
+                    Text(String(format: "%.0f ms", ms))
+                        .font(.system(size: 20, weight: .light, design: .monospaced))
+                        .foregroundStyle(colorForLatency(ms))
                 }
             }
 
@@ -75,15 +77,38 @@ struct RecordView: View {
                 infoColumn(label: "ALTITUDE", value: location.formattedAltitude)
             }
 
-            if let band = signal.currentReading?.bandInfo {
-                HStack(spacing: 24) {
+            HStack(spacing: 24) {
+                infoColumn(label: "CARRIER", value: signal.currentReading?.carrierName ?? "—")
+                if let band = signal.currentReading?.bandInfo {
                     infoColumn(label: "BAND", value: band)
+                } else {
                     Spacer()
                 }
             }
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private var connectionIcon: some View {
+        switch signal.connectionType {
+        case .satellite:
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .foregroundStyle(.green)
+        case .cellular:
+            Image(systemName: "cellularbars")
+                .foregroundStyle(.blue)
+        case .wifi:
+            Image(systemName: "wifi")
+                .foregroundStyle(.blue)
+        case .none:
+            Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                .foregroundStyle(.red)
+        case .unknown:
+            Image(systemName: "questionmark.circle")
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func infoColumn(label: String, value: String) -> some View {
@@ -105,32 +130,37 @@ struct RecordView: View {
     private var recordButton: some View {
         Button(action: recordMeasurement) {
             ZStack {
-                // Outer pulse ring
                 Circle()
                     .stroke(lineWidth: 2)
                     .foregroundStyle(.red.opacity(0.3))
                     .scaleEffect(pulseScale)
 
-                // Main button
                 Circle()
                     .fill(.red)
                     .frame(width: 80, height: 80)
                     .overlay(
-                        Text("REC")
-                            .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white)
+                        VStack(spacing: 2) {
+                            Image(systemName: "record.circle")
+                                .font(.system(size: 20))
+                            Text("REC")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        }
+                        .foregroundStyle(.white)
                     )
                     .shadow(color: .red.opacity(0.4), radius: isRecording ? 20 : 8)
             }
             .frame(width: 100, height: 100)
         }
         .buttonStyle(.plain)
+        .disabled(isRecording)
         .sensoryFeedback(.impact(weight: .heavy), trigger: lastRecordTime)
     }
 
     // MARK: - Actions
 
     private func recordMeasurement() {
+        isRecording = true
+
         // Visual feedback
         withAnimation(.easeOut(duration: 0.3)) {
             pulseScale = 1.4
@@ -139,36 +169,38 @@ struct RecordView: View {
             pulseScale = 1.0
         }
 
-        // Capture
-        let reading = signal.capture()
+        Task {
+            let reading = await signal.capture()
 
-        let record = BeamRecord(
-            id: UUID(),
-            timestamp: Date(),
-            latitude: location.latitude,
-            longitude: location.longitude,
-            altitude: location.altitude,
-            rsrp: reading.rsrp,
-            rsrq: reading.rsrq,
-            sinr: reading.sinr,
-            rawSignalStrength: reading.rawSignalStrength,
-            satelliteName: reading.satelliteName,
-            radioAccessTechnology: reading.radioAccessTechnology,
-            carrierName: reading.carrierName,
-            bandInfo: reading.bandInfo
-        )
+            let record = BeamRecord(
+                id: UUID(),
+                timestamp: Date(),
+                latitude: location.latitude,
+                longitude: location.longitude,
+                altitude: location.altitude,
+                connectionType: reading.connectionType,
+                latencyMs: reading.latencyMs,
+                satelliteName: reading.satelliteName,
+                radioAccessTechnology: reading.radioAccessTechnology,
+                carrierName: reading.carrierName,
+                bandInfo: reading.bandInfo
+            )
 
-        store.add(record)
-        lastRecordTime = Date()
+            await MainActor.run {
+                store.add(record)
+                lastRecordTime = Date()
+                isRecording = false
+            }
+        }
     }
 
-    private func colorForPower(_ power: Double) -> Color {
-        switch power {
-        case -80...0:      return .green
-        case -100..<(-80): return .mint
-        case -110..<(-100): return .yellow
-        case -120..<(-110): return .orange
-        default:           return .red
+    private func colorForLatency(_ ms: Double) -> Color {
+        switch ms {
+        case 0..<50:    return .green
+        case 50..<100:  return .mint
+        case 100..<300: return .yellow
+        case 300..<1000: return .orange
+        default:        return .red
         }
     }
 }
